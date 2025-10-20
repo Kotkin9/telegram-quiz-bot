@@ -1,8 +1,8 @@
 import json
 import asyncio
-from aiogram import Router, F, types  # Added types
+from aiogram import Router, F, types
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder  # Added InlineKeyboardBuilder
+from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 from aiogram.filters import Command
 from data.database import get_quiz_index, update_quiz_index, save_result, get_stats, get_top_players
 
@@ -28,8 +28,17 @@ async def cmd_start(message: Message):
     builder.add(types.KeyboardButton(text="Начать игру"))
     await message.answer("Добро пожаловать в квиз @QuuuiiizBot!", reply_markup=builder.as_markup(resize_keyboard=True))
 
-@router.message(Command("quiz") | (F.text == "Начать игру"))
+@router.message(Command("quiz"))
 async def cmd_quiz(message: Message):
+    user_id = message.from_user.id
+    username = message.from_user.username or "Anonymous"
+    user_states[user_id] = {'username': username, 'answers': [], 'score': 0}
+    await update_quiz_index(user_id, 0, 0)
+    await message.answer("Давайте начнем квиз!")
+    await get_question(message, user_id)
+
+@router.message(F.text == "Начать игру")
+async def cmd_start_game(message: Message):
     user_id = message.from_user.id
     username = message.from_user.username or "Anonymous"
     user_states[user_id] = {'username': username, 'answers': [], 'score': 0}
@@ -89,8 +98,9 @@ async def answer_handler(callback: CallbackQuery):
         message_id=callback.message.message_id,
         reply_markup=None
     )
+    correct_answer = q['options'][correct_index]
     await callback.message.answer(
-        f"{'Верно!' if is_correct else f'Неправильно. Правильный: {q['options'][correct_index]}'}\nВаш выбор: {selected_answer}"
+        f"{'Верно!' if is_correct else f'Неправильно. Правильный: {correct_answer}'}\nВаш выбор: {selected_answer}"
     )
     current_index += 1
     await update_quiz_index(user_id, current_index, score)
